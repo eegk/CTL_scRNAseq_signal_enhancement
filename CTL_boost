@@ -1,0 +1,45 @@
+### remove empty
+all_cells <- all_cells[grep('Empty',all_cells$named_clusters),]
+#
+Idents(all_cells) <- all_cells$named_clusters
+#n <- 346
+temp <- sort(unique(all_cells$named_clusters))
+temp <- temp[-grep('Empty',temp)]
+# List for new data
+s_list <- list()
+# Define parameters
+set.seed(123)  # For reproducibility
+num_samples <- 346  # Number of subsamples
+percent_cells <- 0.1  # 10%
+
+for(i in 1:length(temp)) {
+  x <- subset(all_cells,idents = temp[i]  )
+  #x <- all_cells@assays$RNA$counts
+  print(i)
+  # Total number of cells
+  num_cells <- ncol(x)
+  # Number of cells per sample
+  sample_size <- floor(percent_cells * num_cells)
+  # Initialize a matrix to store average expressions
+  avg_expression <- matrix(0, nrow = nrow(x), ncol = num_samples)
+  rownames(avg_expression) <- rownames(x)
+  # Perform sampling
+  for (iii in 1:num_samples) {
+    sampled_cells <- sample(colnames(x), sample_size)
+    avg_expression[, iii] <- rowMeans(x@assays$RNA$counts[, sampled_cells])
+  }
+  # Convert to a Seurat object if needed
+  avg_expression_seurat <- CreateSeuratObject(avg_expression)
+  avg_expression_seurat$named_clusters <- temp[i]
+  s_list[[i]] <- avg_expression_seurat
+}
+
+# clear tmp obj
+rm(list=setdiff(ls(), c("s_list")))
+
+library(purrr)
+
+# Merge all Seurat objects in the list
+merged_seurat <- reduce(s_list, merge)
+# merge layers
+merged_seurat <- JoinLayers(merged_seurat)
